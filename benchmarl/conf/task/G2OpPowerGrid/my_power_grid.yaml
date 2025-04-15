@@ -1,5 +1,5 @@
 defaults:
-  - G2OpPowerGrid_l2rpn_idf_2023_config
+  - G2OpPowerGrid_my_power_grid_config
   - _self_
 
 

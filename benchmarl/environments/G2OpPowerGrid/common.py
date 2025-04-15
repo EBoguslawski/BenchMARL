@@ -18,8 +18,8 @@ from benchmarl.environments.common import Task, TaskClass
 from PZMAEnvWithHeuristics import PZMAEnvRecoDNLimit
 
 class G2OpPowerGridTask(Task):
-    
-    L2RPN_IDF_2023 = None
+
+    MY_POWER_GRID = None
     # L2RPN_WCCI_2022 = None # Add this line if I want to add a config for the l2rpn_wcci_2022 environment
 
     @staticmethod
