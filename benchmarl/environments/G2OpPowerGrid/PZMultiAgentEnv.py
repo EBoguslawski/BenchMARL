@@ -1,5 +1,6 @@
 # %%
 import numpy as np
+import re
 import functools
 import gymnasium as gym
 from gymnasium.spaces import Box
@@ -32,7 +33,7 @@ class PZMultiAgentEnv(ParallelEnv):
                  env_g2op_config = {},
                  local_rewards = None,
                  shuffle_chronics = True,
-                 filter_chronics_fun = None,
+                 regex_filter_chronics = None,
                  ):
                 
         # Zones definition
@@ -56,7 +57,7 @@ class PZMultiAgentEnv(ParallelEnv):
         
 
         # Create the grid2op environment
-        if filter_chronics_fun is not None and "chronics_class" not in env_g2op_config: 
+        if regex_filter_chronics is not None and "chronics_class" not in env_g2op_config: 
             env_g2op_config["chronics_class"] = MultifolderWithCache 
         self._update_env_g2op_config_for_rewards(env_g2op_config, zones_dict)
         env = grid2op.make(env_name, 
@@ -66,9 +67,10 @@ class PZMultiAgentEnv(ParallelEnv):
         self.env_g2op = env
 
         ## Filter chronics
-        if filter_chronics_fun is not None:
-            self.env_g2op.chronics_handler.real_data.set_filter(filter_chronics_fun)
-        if filter_chronics_fun is not None or \
+        if regex_filter_chronics is not None:
+            compiled_pattern = re.compile(regex_filter_chronics)
+            self.env_g2op.chronics_handler.real_data.set_filter(lambda chronic_name: bool(compiled_pattern.match(chronic_name)))
+        if regex_filter_chronics is not None or \
             type(self.env_g2op.chronics_handler.real_data) == MultifolderWithCache:
                 self.env_g2op.chronics_handler.reset()
 
@@ -165,6 +167,8 @@ class PZMultiAgentEnv(ParallelEnv):
             for agent_id in self.agents:
                 self._aux_action_spaces[agent_id].seed(seed)
                 self._aux_observation_spaces[agent_id].seed(seed)
+                self.action_space(agent_id).seed(seed)
+                self.observation_space(agent_id).seed(seed)
         # return observation dict and infos dict.
         # Cf gymenv dans gymcompat
         if (self._shuffle_chronics and 
@@ -173,8 +177,8 @@ class PZMultiAgentEnv(ParallelEnv):
                 self.env_g2op.chronics_handler.sample_next_chronics()
 
         obs = self.env_g2op.reset()
-
-        return self._to_gym_obs(obs), {}
+        info = {agent_id: {} for agent_id in self.agents}
+        return self._to_gym_obs(obs), info
 
     def step(self, action_dict):
         # return observation dict, rewards dict, termination (done)/truncation (False) dicts, and infos dict
@@ -193,7 +197,7 @@ class PZMultiAgentEnv(ParallelEnv):
         # Termination
         done = {agent_id: done_ for agent_id in self.agents}
         truncated = {agent_id: False for agent_id in self.agents}
-        info = {}
+        info = {agent_id: {} for agent_id in self.agents}
         return gym_obs, rew, done, truncated, info
     
     def _to_gym_obs(self, grid2op_obs):

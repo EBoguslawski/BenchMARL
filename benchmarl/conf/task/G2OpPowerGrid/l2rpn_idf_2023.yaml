@@ -1,0 +1,15 @@
+defaults:
+  - G2OpPowerGrid_l2rpn_idf_2023_config
+  - _self_
+
+
+env_name: l2rpn_idf_2023
+zone_names: ["Zone1", "Zone2", "Zone3"]
+use_global_obs: False
+use_redispatching_agent: True
+env_g2op_config: {}
+local_rewards: null
+shuffle_chronics: True
+regex_filter_chronics: null
+safe_max_rho: 0.9
+curtail_margin: 30

@@ -266,11 +266,9 @@ class PZMAEnvWithHeuristics(PZMultiAgentEnv):
                 for agent_id in self.agents if agent_id != "redispatching_agent"}
             rew.update({"redispatching_agent": rew_})
         # Termination
-        done = {"__all__": done_}
-        done.update({agent_id: done_ for agent_id in self.agents})
-        truncated = {"__all__": False}
-        truncated.update({agent_id: False for agent_id in self.agents})
-        info = {}
+        done = {agent_id: done_ for agent_id in self.agents}
+        truncated = {agent_id: False for agent_id in self.agents}
+        info = {agent_id: {} for agent_id in self.agents}
         return gym_obs, rew, done, truncated, info
         
     def reset(self, *, seed=None, options=None):
@@ -303,7 +301,7 @@ class PZMAEnvWithHeuristics(PZMultiAgentEnv):
                 self._previous_act = g2op_obs
                 gym_obs = self._to_gym_obs(g2op_obs)
                 break
-            
+        info = {agent_id: {} for agent_id in self.agents}
         return gym_obs, info  # return the gym observation
         
         
