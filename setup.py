@@ -37,6 +37,14 @@ extra_files = package_files(
         / Path("benchmarl")
         / Path("conf")
     )
+) + package_files(
+    str(
+        Path(os.path.dirname(os.path.realpath(__file__)))
+        / Path("benchmarl")
+        / Path("environments")
+        / Path("G2OpPowerGrid")
+        / Path("normalization")
+    )
 )
 
 setup(
