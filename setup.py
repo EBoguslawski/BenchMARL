@@ -43,7 +43,6 @@ extra_files = package_files(
         / Path("benchmarl")
         / Path("environments")
         / Path("G2OpPowerGrid")
-        / Path("normalization")
     )
 )
 
