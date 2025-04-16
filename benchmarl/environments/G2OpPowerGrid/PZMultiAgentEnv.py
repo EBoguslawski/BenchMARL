@@ -8,6 +8,7 @@ from pettingzoo import ParallelEnv
 from lightsim2grid import LightSimBackend
 import grid2op
 from grid2op.Action import PlayableAction
+from grid2op.Reward import LinesCapacityReward
 from grid2op.Chronics import MultifolderWithCache, Multifolder
 from grid2op.gym_compat import GymEnv, BoxGymnasiumObsSpace, BoxGymnasiumActSpace
 from .utils import *
@@ -158,6 +159,7 @@ class PZMultiAgentEnv(ParallelEnv):
                         {agent_id: self._local_rewards[agent_id](zone_dict=zones_dict[zone_agent])})
         else:
             self.use_global_reward = True
+            env_g2op_config["reward_class"] = LinesCapacityReward
 
     def reset(self, *, seed=None, options=None):
         if seed is not None:
