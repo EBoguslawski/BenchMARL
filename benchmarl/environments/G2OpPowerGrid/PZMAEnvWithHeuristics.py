@@ -12,7 +12,7 @@ import numpy as np
 
 from grid2op.Observation import BaseObservation
 from grid2op.Action import BaseAction
-from PZMultiAgentEnv import PZMultiAgentEnv
+from .PZMultiAgentEnv import PZMultiAgentEnv
 
 # %%
 class PZMAEnvWithHeuristics(PZMultiAgentEnv):

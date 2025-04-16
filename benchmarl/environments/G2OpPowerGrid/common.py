@@ -15,7 +15,7 @@ from torchrl.envs import EnvBase, PettingZooWrapper
 
 from benchmarl.environments.common import Task, TaskClass
 
-from PZMAEnvWithHeuristics import PZMAEnvRecoDNLimit
+from .PZMAEnvWithHeuristics import PZMAEnvRecoDNLimit
 
 class G2OpPowerGridTask(Task):
 

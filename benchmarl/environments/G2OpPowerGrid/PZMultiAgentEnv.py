@@ -10,7 +10,7 @@ import grid2op
 from grid2op.Action import PlayableAction
 from grid2op.Chronics import MultifolderWithCache, Multifolder
 from grid2op.gym_compat import GymEnv, BoxGymnasiumObsSpace, BoxGymnasiumActSpace
-from utils import *
+from .utils import *
 # %%
 
 _TIME_SERIE_ID = "time serie id"
