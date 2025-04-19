@@ -83,30 +83,20 @@ class PZMultiAgentEnv(ParallelEnv):
         self._aux_observation_spaces, self._aux_action_spaces = {}, {}
         if self.use_redispatching_agent:
             obs_space_kwargs, act_space_kwargs = get_normalization_kwargs(env.env_name)
+            obs_attr_to_keep, act_attr_to_keep = obs_attr_to_keep_default.copy(), ["redispatch"]
             for op in ["add", "multiply"]: # Keep only redispatching in act_space_kwargs
                 act_space_kwargs[op] = {"redispatch": act_space_kwargs[op]["redispatch"]}
             self._aux_observation_spaces.update({f"redispatching_agent": BoxGymnasiumObsSpace(env.observation_space,
-                                                    attr_to_keep=obs_attr_to_keep_default.copy(),
+                                                    attr_to_keep=obs_attr_to_keep,
                                                     **obs_space_kwargs
                                                 )})
             self._aux_action_spaces.update({f"redispatching_agent": BoxGymnasiumActSpace(env.action_space,
-                                                    attr_to_keep=["redispatch"],
+                                                    attr_to_keep=act_attr_to_keep,
                                                     **act_space_kwargs
                                                 )})
             # Normalizing observation and action spaces
-            for attr_nm in obs_attr_to_keep_default:
-                if (("divide" in obs_space_kwargs and attr_nm in obs_space_kwargs["divide"]) or 
-                    ("subtract" in obs_space_kwargs and attr_nm in obs_space_kwargs["subtract"]) 
-                ):
-                    continue
-                self._aux_observation_spaces["redispatching_agent"].normalize_attr(attr_nm)
-
-            for attr_nm in ["redispatch"]:
-                if (("multiply" in act_space_kwargs and attr_nm in act_space_kwargs["multiply"]) or 
-                    ("add" in act_space_kwargs and attr_nm in act_space_kwargs["add"]) 
-                ):
-                    continue
-                self._aux_action_spaces["redispatching_agent"].normalize_attr(attr_nm)
+            self._normalize_obs_or_act_space(self._aux_observation_spaces[f"redispatching_agent"], obs_space_kwargs, obs_attr_to_keep)
+            self._normalize_obs_or_act_space(self._aux_action_spaces[f"redispatching_agent"], act_space_kwargs, act_attr_to_keep)
 
         ## Local agents
         for i in range(1, len(zone_names) + 1):
@@ -121,9 +111,36 @@ class PZMultiAgentEnv(ParallelEnv):
                                                 attr_to_keep=act_attr_to_keep,
                                                 **act_space_kwargs
                                             )})
+            self._normalize_obs_or_act_space(self._aux_observation_spaces[f"agent_{i}"], obs_space_kwargs, obs_attr_to_keep)
+            self._normalize_obs_or_act_space(self._aux_action_spaces[f"agent_{i}"], act_space_kwargs, act_attr_to_keep)
+
+        # State space
+        # Same as the redispatching agent observation space for the moment
+        obs_space_kwargs, _ = get_normalization_kwargs(env.env_name)
+        obs_attr_to_keep = obs_attr_to_keep_default.copy()
+        self._aux_state_space = BoxGymnasiumObsSpace(env.observation_space,
+                                                attr_to_keep=obs_attr_to_keep,
+                                                **obs_space_kwargs)
+        self._normalize_obs_or_act_space(self._aux_state_space, obs_space_kwargs, obs_attr_to_keep)
         
-        # Initializing a state we don't need but that is required by the API
-        self.state = None
+        # Initializing a state
+        self._state = None
+
+    def state(self):
+        return self._state
+
+    def _normalize_obs_or_act_space(self, space, space_kwargs, attr_to_keep):
+         functs = space_kwargs.get("functs", {})
+         divide = space_kwargs.get("divide", {})
+         subtract = space_kwargs.get("subtract", {})
+         add = space_kwargs.get("add", {})
+         multiply = space_kwargs.get("multiply", {})
+         for attr_nm in attr_to_keep:
+                if ((attr_nm in divide) or (attr_nm in subtract)) or \
+                   ((attr_nm in add) or (attr_nm in multiply)) or \
+                    attr_nm in functs:
+                    continue
+                space.normalize_attr(attr_nm)
             
 
     @functools.lru_cache(maxsize=None)
@@ -180,7 +197,15 @@ class PZMultiAgentEnv(ParallelEnv):
 
         obs = self.env_g2op.reset()
         info = {agent_id: {} for agent_id in self.agents}
-        return self._to_gym_obs(obs), info
+        gym_obs = self._to_gym_obs(obs)
+
+        # Set state for the critic
+        if self.use_redispatching_agent:
+            self._state = gym_obs["redispatching_agent"]
+        else:
+            self._state = self._aux_state_space.to_gym(obs)
+
+        return gym_obs, info
 
     def step(self, action_dict):
         # return observation dict, rewards dict, termination (done)/truncation (False) dicts, and infos dict
@@ -188,6 +213,11 @@ class PZMultiAgentEnv(ParallelEnv):
         obs_, rew_, done_, info = self.env_g2op.step(g2op_act)
         # Observations
         gym_obs = self._to_gym_obs(obs_)
+        # Set state for the critic
+        if self.use_redispatching_agent:
+            self._state = gym_obs["redispatching_agent"]
+        else:
+            self._state = self._aux_state_space.to_gym(obs_)
         # Rewards
         if self.use_global_reward:
             rew = {agent_id: rew_ for agent_id in self.agents}

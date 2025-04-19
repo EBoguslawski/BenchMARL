@@ -10,7 +10,7 @@ from benchmarl.utils import DEVICE_TYPING
 from gymnasium import spaces
 from pettingzoo import ParallelEnv
 
-from torchrl.data import CompositeSpec
+from torchrl.data import CompositeSpec, Composite
 from torchrl.envs import EnvBase, PettingZooWrapper
 
 from benchmarl.environments.common import Task, TaskClass
@@ -42,7 +42,7 @@ class G2OpPowerGridClass(TaskClass):
             categorical_actions=False,
             device=device,
             seed=seed,
-            return_state=False,
+            return_state=True,
             group_map={agent: [agent] for agent in env_pz.possible_agents}
         )
 
@@ -53,7 +53,7 @@ class G2OpPowerGridClass(TaskClass):
         return False
 
     def has_state(self) -> bool:
-        return False
+        return True
 
     def has_render(self, env: EnvBase) -> bool:
         return False
@@ -65,7 +65,7 @@ class G2OpPowerGridClass(TaskClass):
         return env.group_map
 
     def state_spec(self, env: EnvBase) -> Optional[CompositeSpec]:
-        return None
+        return Composite({"state": env.observation_spec["state"].clone()})
 
     def action_mask_spec(self, env: EnvBase) -> Optional[CompositeSpec]:
         return None
