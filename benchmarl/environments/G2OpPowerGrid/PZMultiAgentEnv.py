@@ -38,12 +38,12 @@ class PZMultiAgentEnv(ParallelEnv):
                  ):
                 
         # Zones definition
-        zone_names = np.sort(zone_names)
-        for zone_name in zone_names:
+        self.zone_names = np.sort(zone_names)
+        for zone_name in self.zone_names:
             if zone_name not in ZONES_DICT.keys():
                 raise ValueError(f"Zone {zone_name} not found in zones_definitions.json. Possible zones are {list(ZONES_DICT.keys())}")
-        zones_dict = {zone_name: ZONES_DICT[zone_name] for zone_name in zone_names}
-        zones_dict = add_missing_keys(zones_dict)
+        self.zones_dict = {zone_name: ZONES_DICT[zone_name] for zone_name in self.zone_names}
+        self.zones_dict = add_missing_keys(self.zones_dict)
 
         self.use_global_obs = use_global_obs
         self._local_rewards = local_rewards
@@ -51,7 +51,7 @@ class PZMultiAgentEnv(ParallelEnv):
         self.render_mode = None # We don't need it but it's required by the ParallelEnv class
 
         self.use_redispatching_agent = use_redispatching_agent
-        self.possible_agents = [f"agent_{i}" for i in range(1, len(zone_names) + 1)]
+        self.possible_agents = [f"agent_{i}" for i in range(1, len(self.zone_names) + 1)]
         if self.use_redispatching_agent:
             self.possible_agents = ["redispatching_agent"] + self.possible_agents
         self.agents = self.possible_agents
@@ -60,7 +60,7 @@ class PZMultiAgentEnv(ParallelEnv):
         # Create the grid2op environment
         if regex_filter_chronics is not None and "chronics_class" not in env_g2op_config: 
             env_g2op_config["chronics_class"] = MultifolderWithCache 
-        self._update_env_g2op_config_for_rewards(env_g2op_config, zones_dict)
+        self._update_env_g2op_config_for_rewards(env_g2op_config)
         env = grid2op.make(env_name, 
                            action_class=PlayableAction, 
                            backend=backend_cls(), 
@@ -99,9 +99,9 @@ class PZMultiAgentEnv(ParallelEnv):
             self._normalize_obs_or_act_space(self._aux_action_spaces[f"redispatching_agent"], act_space_kwargs, act_attr_to_keep)
 
         ## Local agents
-        for i in range(1, len(zone_names) + 1):
+        for i in range(1, len(self.zone_names) + 1):
             obs_attr_to_keep, act_attr_to_keep, obs_space_kwargs, act_space_kwargs = get_obs_act_attr_and_kwargs(env, 
-                                                                                                         zones_dict[zone_names[i-1]], 
+                                                                                                         self.zones_dict[self.zone_names[i-1]], 
                                                                                                          use_local_obs=not self.use_global_obs)
             self._aux_observation_spaces.update({f"agent_{i}": BoxGymnasiumObsSpace(env.observation_space,
                                                 attr_to_keep=obs_attr_to_keep,
@@ -159,9 +159,10 @@ class PZMultiAgentEnv(ParallelEnv):
         if agent_id == "redispatching_agent":
             return None
         else:
-            return f"Zone{agent_id.split('_')[1]}"
+            idx = int(agent_id.split('_')[1]) - 1
+            return self.zone_names[idx]
 
-    def _update_env_g2op_config_for_rewards(self, env_g2op_config, zones_dict):
+    def _update_env_g2op_config_for_rewards(self, env_g2op_config):
         if self._local_rewards is not None:
             self.use_global_reward = False
             # if "reward_kwargs" not in env_config:
@@ -173,7 +174,7 @@ class PZMultiAgentEnv(ParallelEnv):
                 if agent_id != "redispatching_agent":
                     zone_agent = self._map_agent_id_to_zone(agent_id)
                     env_g2op_config["other_rewards"].update(
-                        {agent_id: self._local_rewards[agent_id](zone_dict=zones_dict[zone_agent])})
+                        {agent_id: self._local_rewards[agent_id](zone_dict=self.zones_dict[zone_agent])})
         else:
             self.use_global_reward = True
             env_g2op_config["reward_class"] = LinesCapacityReward
