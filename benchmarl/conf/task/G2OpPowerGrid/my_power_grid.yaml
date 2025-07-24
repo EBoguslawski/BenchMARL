@@ -4,7 +4,7 @@ defaults:
 
 
 env_name: l2rpn_idf_2023
-zone_names: ["Zone1", "Zone2", "Zone3"]
+zone_names: ["Zone0", "Zone1", "Zone2", "Zone3", "Zone4", "Zone5", "Zone6", "Zone7", "Zone8", "Zone9", "Zone10"]
 use_global_obs: False
 use_redispatching_agent: True
 env_g2op_config: {}

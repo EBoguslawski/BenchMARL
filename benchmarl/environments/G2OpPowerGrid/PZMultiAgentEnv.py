@@ -27,7 +27,7 @@ class PZMultiAgentEnv(ParallelEnv):
     metadata = {"render_modes": [], "name": "g2op_power_grid"}
     def __init__(self,
                  env_name = "l2rpn_idf_2023",
-                 zone_names = ["Zone1", "Zone2", "Zone3"],
+                 zone_names = [f"Zone{j}" for j in range(11)],
                  backend_cls = backend_cls,
                  use_global_obs = False,
                  use_redispatching_agent = True,
