@@ -16,5 +16,6 @@ class TaskConfig:
     local_rewards: dict = MISSING
     shuffle_chronics: bool = MISSING
     regex_filter_chronics: str = MISSING
+    zones_path: str = MISSING
     safe_max_rho: float = MISSING
     curtail_margin: float = MISSING

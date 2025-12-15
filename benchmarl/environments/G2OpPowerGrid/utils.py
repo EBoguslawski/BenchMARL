@@ -1,5 +1,5 @@
 import os
-from typing import List, Dict
+from typing import List, Dict, Any, Optional, Type, Tuple
 import numpy as np
 import json
 import grid2op
@@ -29,7 +29,7 @@ obs_attr_to_keep_default = ["month", "day_of_week", "hour_of_day", "minute_of_ho
 act_attr_to_keep_default = ["curtail", "set_storage"]
 
 
-def add_missing_keys(zones_dict):
+def add_missing_keys(zones_dict: Dict[str, Any]):
     zone_names = zones_dict.keys()
     every_keys = {key for zone_name in zone_names for key in zones_dict[zone_name].keys()}
     missing_keys_zones = [every_keys - set(zones_dict[zone_name].keys()) for zone_name in zone_names]
@@ -38,8 +38,15 @@ def add_missing_keys(zones_dict):
             zones_dict[zone_name][missing_keys] = []
     return zones_dict
 
+def get_zone_dict_from_path(zones_path: Optional[str] = None) -> Dict[str, Any]:
+    if zones_path is not None:
+            with open(zones_path, "r", encoding="utf-8") as file:
+                zones_dict = json.load(file)
+    else:
+        zones_dict = ZONES_DICT
+    return zones_dict
 
-def get_zone_dict_from_names(zone_names: List[str]) -> Dict:
+def get_zone_dict_from_names(zone_names: List[str], zones_path: Optional[str] = None) -> Dict[str, Any]:
 
     if isinstance(zone_names, str):
         zone_names = [zone_names]
@@ -50,7 +57,7 @@ def get_zone_dict_from_names(zone_names: List[str]) -> Dict:
         else:
             raise ValueError(f"If 'Complete' is in zone_names, then it has to be the only zone. You entered {len(zone_names)} zones.")
         
-    zones_dict = ZONES_DICT
+    zones_dict = get_zone_dict_from_path(zones_path=zones_path)
 
     for zone_name in zone_names:
         if zone_name not in zones_dict.keys():
@@ -75,7 +82,7 @@ def get_zone_dict_from_names(zone_names: List[str]) -> Dict:
     return final_dict
 
 
-def normalize_attr_obs(vect, attr_name, dict, idx):
+def normalize_attr_obs(vect, attr_name: str, dict: Dict[str, Any], idx: int):
     if attr_name in dict["subtract"].keys():
         substract = np.array(dict["subtract"][attr_name])
         divide = np.array(dict["divide"][attr_name])
@@ -85,7 +92,7 @@ def normalize_attr_obs(vect, attr_name, dict, idx):
     return res
 
 
-def get_normalization_kwargs(env_name):
+def get_normalization_kwargs(env_name: str) -> Dict[str, Any]:
     if "l2rpn_idf_2023" in env_name:
         path = os.path.join(ENV_PATH, "normalization/l2rpn_idf_2023")
     elif "l2rpn_wcci_2022" in env_name:
@@ -103,7 +110,7 @@ def get_normalization_kwargs(env_name):
     return obs_space_kwargs, act_space_kwargs
 
 
-def get_obs_act_attr_and_kwargs(env, zone_dict, add_storage_setpoint=False, use_local_obs=True):
+def get_obs_act_attr_and_kwargs(env, zone_dict: Dict[str, Any], add_storage_setpoint: bool = False, use_local_obs: bool = True) -> Tuple[Dict[str, Any], ...]:
     
     obs_space_kwargs, _ = get_normalization_kwargs(env.env_name)
     
@@ -235,7 +242,7 @@ def get_obs_act_attr_and_kwargs(env, zone_dict, add_storage_setpoint=False, use_
     return obs_attr_to_keep, act_attr_to_keep, obs_space_kwargs_zone, act_space_kwargs_zone
 
 
-def _aux_get_stat_metadata(env_name, dn=True, name_stat=None):
+def _aux_get_stat_metadata(env_name: str, dn: bool = True, name_stat: Optional[str] = None) -> Dict[str, Any]:
     if os.path.isdir(env_name):
         path_env = env_name
     else:
@@ -272,7 +279,7 @@ def _aux_get_stat_metadata(env_name, dn=True, name_stat=None):
     return dict_
 
 
-def get_env_seed(env_name: str):
+def get_env_seed(env_name: str) -> List[int]:
     """This function ensures that you can reproduce the results of the computed scenarios.
     
     It forces the seeds of the environment, during evaluation to be the same as the one used during the evaluation of the score.

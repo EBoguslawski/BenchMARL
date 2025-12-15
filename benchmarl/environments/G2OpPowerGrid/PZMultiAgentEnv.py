@@ -1,6 +1,7 @@
 # %%
 import numpy as np
 import re
+from typing import List, Dict, Any, Optional, Type
 import functools
 import gymnasium as gym
 from gymnasium.spaces import Box
@@ -8,7 +9,8 @@ from pettingzoo import ParallelEnv
 from lightsim2grid import LightSimBackend
 import grid2op
 from grid2op.Action import PlayableAction
-from grid2op.Reward import LinesCapacityReward
+from grid2op.Reward import LinesCapacityReward, BaseReward
+from grid2op.Backend import Backend
 from grid2op.Chronics import MultifolderWithCache, Multifolder
 from grid2op.gym_compat import GymEnv, BoxGymnasiumObsSpace, BoxGymnasiumActSpace
 from .utils import *
@@ -26,23 +28,29 @@ except ImportError as exc_:
 class PZMultiAgentEnv(ParallelEnv):
     metadata = {"render_modes": [], "name": "g2op_power_grid"}
     def __init__(self,
-                 env_name = "l2rpn_idf_2023",
-                 zone_names = [f"Zone{j}" for j in range(11)],
-                 backend_cls = backend_cls,
-                 use_global_obs = False,
-                 use_redispatching_agent = True,
-                 env_g2op_config = {},
-                 local_rewards = None,
-                 shuffle_chronics = True,
-                 regex_filter_chronics = None,
+                 env_name: str = "l2rpn_idf_2023",
+                 zone_names: List[str] = [f"Zone{j}" for j in range(11)],
+                 backend_cls: Type[Backend] = backend_cls,
+                 use_global_obs: bool = False,
+                 use_redispatching_agent: bool = True,
+                 env_g2op_config: Dict[str, Any] = {},
+                 local_rewards: Optional[Dict[str, Type[BaseReward]]] = None,
+                 shuffle_chronics: bool = True,
+                 regex_filter_chronics: Optional[str] = None,
+                 zones_path: Optional[str] = None,
                  ):
                 
         # Zones definition
         self.zone_names = np.sort(zone_names)
+
+        full_zones_dict = get_zone_dict_from_path(zones_path=zones_path)
+
         for zone_name in self.zone_names:
             if zone_name not in ZONES_DICT.keys():
-                raise ValueError(f"Zone {zone_name} not found in zones_definitions.json. Possible zones are {list(ZONES_DICT.keys())}")
-        self.zones_dict = {zone_name: ZONES_DICT[zone_name] for zone_name in self.zone_names}
+                raise ValueError(f"Zone {zone_name} not found in {zones_path if zones_path else "zones_definitions.json"}. Possible zones are {list(full_zones_dict.keys())}")
+            
+        # We only keep the zones we are interested in
+        self.zones_dict = {zone_name: full_zones_dict[zone_name] for zone_name in self.zone_names}
         self.zones_dict = add_missing_keys(self.zones_dict)
 
         self.use_global_obs = use_global_obs
@@ -177,7 +185,7 @@ class PZMultiAgentEnv(ParallelEnv):
                         {agent_id: self._local_rewards[agent_id](zone_dict=self.zones_dict[zone_agent])})
         else:
             self.use_global_reward = True
-            env_g2op_config["reward_class"] = LinesCapacityReward
+            env_g2op_config.setdefault("reward_class", LinesCapacityReward)
 
     def reset(self, *, seed=None, options=None):
         if seed is not None:

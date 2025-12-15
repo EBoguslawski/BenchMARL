@@ -54,8 +54,8 @@ class PZMAEnvWithHeuristics(PZMultiAgentEnv):
 
     """
     POSSIBLE_REWARD_CUMUL = ["init", "last", "sum", "max"]
-    def __init__(self, reward_cumul="sum", **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, reward_cumul="sum", **kwargs):
+        super().__init__(*args, **kwargs)
         self._reward_cumul = reward_cumul
         
         if not self._reward_cumul in type(self).POSSIBLE_REWARD_CUMUL:
@@ -324,8 +324,8 @@ class PZMAEnvRecoDN(PZMAEnvWithHeuristics):
         Sometimes, 90% of the thermal limit is too high, sometimes it is too low.
         
     """
-    def __init__(self, safe_max_rho=0.9, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, reward_cumul="sum", safe_max_rho=0.9, **kwargs):
+        super().__init__(reward_cumul=reward_cumul, *args, **kwargs)
         self._safe_max_rho = safe_max_rho
         
         
@@ -371,8 +371,8 @@ class PZMAEnvRecoDNLimit(PZMAEnvRecoDN):
     on act.limit_curtail_storage(...) before you give your action to the
     environment
     """
-    def __init__(self, curtail_margin=30, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, *args, reward_cumul="sum", safe_max_rho=0.9, curtail_margin=30, **kwargs):
+        super().__init__(reward_cumul=reward_cumul, safe_max_rho=safe_max_rho, *args, **kwargs)
         self._curtail_margin = curtail_margin
         
         
@@ -382,4 +382,73 @@ class PZMAEnvRecoDNLimit(PZMAEnvRecoDN):
         # but the main goal is to 
         grid2op_action.limit_curtail_storage(g2op_obs, margin=self._curtail_margin)
         return grid2op_action
+    
+
+class PZMAEnvRemoveCurtail(PZMAEnvWithHeuristics): 
+    def __init__(self, *args, reward_cumul="sum", safe_max_rho=0.9, curtail_margin=30,
+                 very_safe_max_rho=0.85,
+                 n_gen_to_uncurt=1,
+                 ratio_to_uncurt=0.05,
+                 margin=0.,
+                 less_or_more="more",
+                 **kwargs):
+        super().__init__(*args, reward_cumul=reward_cumul, **kwargs)
+        self._safe_max_rho = safe_max_rho
+        self._very_safe_max_rho = very_safe_max_rho if (very_safe_max_rho < safe_max_rho) else safe_max_rho
+        self._curtail_margin = curtail_margin
+        self._n_gen_to_uncurt = n_gen_to_uncurt
+        self._ratio_to_uncurt = ratio_to_uncurt
+        self._margin = margin
+        self._less_or_more = less_or_more
+
+
+    def fix_action(self, grid2op_action, g2op_obs):
+        # We try to limit to end up with a "game over" because actions on curtailment or storage units.
+        # this is "required" because we use curtailment and action on storage units
+        grid2op_action.limit_curtail_storage(g2op_obs, margin=self._curtail_margin)
+        return grid2op_action
+    
+    def heuristic_actions(self, g2op_obs, reward, done, info) -> List[BaseAction]:
+        """To match the description of the environment, this heuristic will:
+        
+        - return the list of all the powerlines that can be reconnected if any
+        - return the list "[do nothing]" is the grid is safe
+        - return the empty list (signaling the agent should take control over the heuristics) otherwise
+
+        Parameters
+        ----------
+        See parameters of :func:`GymEnvWithHeuristics.heuristic_actions`
+
+        Returns
+        -------
+        See return values of :func:`GymEnvWithHeuristics.heuristic_actions`
+        """
+        to_reco = (g2op_obs.time_before_cooldown_line == 0) & (~g2op_obs.line_status)
+        res = []
+        if np.any(to_reco):
+            # reconnect something if it can be
+            reco_id = np.where(to_reco)[0]
+            for line_id in reco_id:
+                g2op_act = self.env_g2op.action_space({"set_line_status": [(line_id, +1)]})
+                res.append(g2op_act)
+        elif g2op_obs.rho.max() <= self._safe_max_rho:
+            # play do nothing if there is "no problem" according to the "rule of thumb"
+            act_dict = {}
+            # remove useless curtailment      
+            curtail_vect = np.zeros(g2op_obs.n_gen) - 1.
+            useless_limits = ((g2op_obs.curtailment_limit - g2op_obs.gen_p_before_curtail / g2op_obs.gen_pmax) >= self._margin) & (g2op_obs.curtailment_limit < 1)
+            if useless_limits.sum() > 0:
+                gen_ids_useless_curtail = np.where(useless_limits)
+                curtail_vect[gen_ids_useless_curtail] = 1.
+            # increase the limit for the most curtailed generators
+            limits = (g2op_obs.curtailment > 0.) & (g2op_obs.curtailment_limit < 1)
+            if limits.sum() > 0 and g2op_obs.rho.max() <= self._very_safe_max_rho:
+                if self._less_or_more == "more":
+                    gen_ids_to_uncurtail = np.argsort(g2op_obs.curtailment_mw)[::-1][:min(self._n_gen_to_uncurt, g2op_obs.gen_renewable.sum())]
+                elif self._less_or_more == "less":
+                    gen_ids_to_uncurtail = np.argsort(g2op_obs.curtailment_mw)[:min(self._n_gen_to_uncurt, g2op_obs.gen_renewable.sum())]
+                curtail_vect[gen_ids_to_uncurtail] = np.clip(g2op_obs.curtailment_limit[gen_ids_to_uncurtail] + self._ratio_to_uncurt, 0., 1)
+            act_dict["curtail"]  = curtail_vect
+            res = [self.env_g2op.action_space(act_dict)]
+        return res 
         
