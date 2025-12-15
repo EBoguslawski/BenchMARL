@@ -33,13 +33,17 @@ class PZMultiAgentEnv(ParallelEnv):
                  backend_cls: Type[Backend] = backend_cls,
                  use_global_obs: bool = False,
                  use_redispatching_agent: bool = True,
+                 add_local_redisp: bool = False,
                  env_g2op_config: Dict[str, Any] = {},
                  local_rewards: Optional[Dict[str, Type[BaseReward]]] = None,
                  shuffle_chronics: bool = True,
                  regex_filter_chronics: Optional[str] = None,
                  zones_path: Optional[str] = None,
                  ):
-                
+        
+        if use_redispatching_agent and add_local_redisp:
+            raise ValueError("""use_redispatching_agent and add_local_redisp are both set to True but only one them is possible.""")
+
         # Zones definition
         self.zone_names = np.sort(zone_names)
 
@@ -59,6 +63,7 @@ class PZMultiAgentEnv(ParallelEnv):
         self.render_mode = None # We don't need it but it's required by the ParallelEnv class
 
         self.use_redispatching_agent = use_redispatching_agent
+        self.add_local_redisp = add_local_redisp
         self.possible_agents = [f"agent_{i}" for i in range(1, len(self.zone_names) + 1)]
         if self.use_redispatching_agent:
             self.possible_agents = ["redispatching_agent"] + self.possible_agents
@@ -110,7 +115,8 @@ class PZMultiAgentEnv(ParallelEnv):
         for i in range(1, len(self.zone_names) + 1):
             obs_attr_to_keep, act_attr_to_keep, obs_space_kwargs, act_space_kwargs = get_obs_act_attr_and_kwargs(env, 
                                                                                                          self.zones_dict[self.zone_names[i-1]], 
-                                                                                                         use_local_obs=not self.use_global_obs)
+                                                                                                         use_local_obs=not self.use_global_obs,
+                                                                                                         add_local_redisp=self.add_local_redisp)
             self._aux_observation_spaces.update({f"agent_{i}": BoxGymnasiumObsSpace(env.observation_space,
                                                 attr_to_keep=obs_attr_to_keep,
                                                 **obs_space_kwargs

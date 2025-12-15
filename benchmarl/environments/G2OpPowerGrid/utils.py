@@ -110,9 +110,9 @@ def get_normalization_kwargs(env_name: str) -> Dict[str, Any]:
     return obs_space_kwargs, act_space_kwargs
 
 
-def get_obs_act_attr_and_kwargs(env, zone_dict: Dict[str, Any], add_storage_setpoint: bool = False, use_local_obs: bool = True) -> Tuple[Dict[str, Any], ...]:
+def get_obs_act_attr_and_kwargs(env, zone_dict: Dict[str, Any], add_storage_setpoint: bool = False, use_local_obs: bool = True, add_local_redisp: bool = False) -> Tuple[Dict[str, Any], ...]:
     
-    obs_space_kwargs, _ = get_normalization_kwargs(env.env_name)
+    obs_space_kwargs, act_space_kwargs = get_normalization_kwargs(env.env_name)
     
     line_large_idx = zone_dict["line_large_idx"]
         
@@ -238,6 +238,25 @@ def get_obs_act_attr_and_kwargs(env, zone_dict: Dict[str, Any], add_storage_setp
                                  "set_storage_zone": (from_gym_act_storage, -1., 1., (len(storage_inside_idx),), None),
                                  
             }
+    
+    if add_local_redisp:
+        n_gen = env.n_gen # we must not use the env directly in the function otherwise the model becomes very heavy when saving
+        gen_redispatchable = env.gen_redispatchable
+        def from_gym_act_redisp(gym_act_redisp):
+            # Normalization
+            multiply = np.ones(n_gen)
+            multiply[gen_redispatchable] = act_space_kwargs["multiply"]["redispatch"]
+            add = np.zeros(n_gen)
+            add[gen_redispatchable] = act_space_kwargs["add"]["redispatch"]
+            gym_act_redisp = gym_act_redisp * multiply[gen_redisp_inside_idx] + add[gen_redisp_inside_idx]
+            # Conversion toward a grid2op action
+            redisp_vect = [(gen_id, curt) for gen_id, curt in zip(gen_redisp_inside_idx, gym_act_redisp)]
+            grid2op_act_redisp = grid2op_act_do_nothing.copy()
+            grid2op_act_redisp.redispatch = redisp_vect          
+            return grid2op_act_redisp
+        
+        act_attr_to_keep.append("redispatch_zone")
+        act_space_kwargs_zone["functs"]["redispatch_zone"] = (from_gym_act_redisp, -1., 1., (len(gen_redisp_inside_idx),), None)
     
     return obs_attr_to_keep, act_attr_to_keep, obs_space_kwargs_zone, act_space_kwargs_zone
 
