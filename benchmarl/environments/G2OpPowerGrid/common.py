@@ -15,7 +15,7 @@ from torchrl.envs import EnvBase, PettingZooWrapper
 
 from benchmarl.environments.common import Task, TaskClass
 
-from .PZMAEnvWithHeuristics import PZMAEnvRecoDNLimit
+from .PZMAEnvWithHeuristics import PZMAEnvRemoveCurtail
 
 class G2OpPowerGridTask(Task):
 
@@ -36,7 +36,7 @@ class G2OpPowerGridClass(TaskClass):
         device: DEVICE_TYPING,
     ) -> Callable[[], EnvBase]:
         config = copy.deepcopy(self.config)
-        env_pz = PZMAEnvRecoDNLimit(**config)
+        env_pz = PZMAEnvRemoveCurtail(**config)
         return lambda: PettingZooWrapper(
             env_pz,
             categorical_actions=False,

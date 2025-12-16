@@ -20,3 +20,11 @@ class TaskConfig:
     zones_path: str = MISSING
     safe_max_rho: float = MISSING
     curtail_margin: float = MISSING
+    remove_curtail: bool = MISSING
+    very_safe_max_rho: float = MISSING
+    n_gen_to_uncurt: int = MISSING
+    ratio_to_uncurt: float = MISSING
+    margin: float = MISSING
+    less_or_more: str = MISSING
+
+

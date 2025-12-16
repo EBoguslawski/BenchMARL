@@ -386,6 +386,7 @@ class PZMAEnvRecoDNLimit(PZMAEnvRecoDN):
 
 class PZMAEnvRemoveCurtail(PZMAEnvWithHeuristics): 
     def __init__(self, *args, reward_cumul="sum", safe_max_rho=0.9, curtail_margin=30,
+                 remove_curtail=False,
                  very_safe_max_rho=0.85,
                  n_gen_to_uncurt=1,
                  ratio_to_uncurt=0.05,
@@ -394,6 +395,7 @@ class PZMAEnvRemoveCurtail(PZMAEnvWithHeuristics):
                  **kwargs):
         super().__init__(*args, reward_cumul=reward_cumul, **kwargs)
         self._safe_max_rho = safe_max_rho
+        self._remove_curtail = remove_curtail # If False this environment is equivalent to PZMAEnvRecoDNLimit
         self._very_safe_max_rho = very_safe_max_rho if (very_safe_max_rho < safe_max_rho) else safe_max_rho
         self._curtail_margin = curtail_margin
         self._n_gen_to_uncurt = n_gen_to_uncurt
@@ -431,7 +433,9 @@ class PZMAEnvRemoveCurtail(PZMAEnvWithHeuristics):
             for line_id in reco_id:
                 g2op_act = self.env_g2op.action_space({"set_line_status": [(line_id, +1)]})
                 res.append(g2op_act)
-        elif g2op_obs.rho.max() <= self._safe_max_rho:
+        elif g2op_obs.rho.max() <= self._safe_max_rho and not self._remove_curtail:
+            res = [self.env_g2op.action_space()]
+        elif g2op_obs.rho.max() <= self._safe_max_rho and self._remove_curtail:
             # play do nothing if there is "no problem" according to the "rule of thumb"
             act_dict = {}
             # remove useless curtailment      

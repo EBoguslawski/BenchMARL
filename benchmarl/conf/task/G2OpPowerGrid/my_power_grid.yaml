@@ -7,9 +7,17 @@ env_name: l2rpn_idf_2023
 zone_names: ["Zone0", "Zone1", "Zone2", "Zone3", "Zone4", "Zone5", "Zone6", "Zone7", "Zone8", "Zone9", "Zone10"]
 use_global_obs: False
 use_redispatching_agent: True
+add_local_redisp: False
 env_g2op_config: {}
 local_rewards: null
 shuffle_chronics: True
 regex_filter_chronics: null
 safe_max_rho: 0.9
 curtail_margin: 30
+zones_path: null
+remove_curtail: False
+very_safe_max_rho: 0.85
+n_gen_to_uncurt: 1
+ratio_to_uncurt: 0.05
+margin: 0.
+less_or_more: "more"
