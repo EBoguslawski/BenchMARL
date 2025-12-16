@@ -12,6 +12,7 @@ class TaskConfig:
     zone_names: list = MISSING
     use_global_obs: bool = MISSING
     use_redispatching_agent: bool = MISSING
+    add_local_redisp: bool = MISSING
     env_g2op_config: dict = MISSING
     local_rewards: dict = MISSING
     shuffle_chronics: bool = MISSING
